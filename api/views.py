@@ -8,11 +8,18 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 import jwt
 import json
+from .models import User, Message
 
-from .models import User
+def find_user(code):
+  try:
+    load_data = jwt.decode(code[7:], 'zma', algorithms=['HS256'])
+    return False, load_data['email']
+  except jwt.InvalidTokenError :
+    error_message = 'token is in valid'
+    return True, error_message
+
 @method_decorator(csrf_exempt, name='dispatch')
-class UserCreateView(View):
-
+class UserView(View):
 
   def post(self, request):
     try:
@@ -40,3 +47,36 @@ class UserCreateView(View):
       error = True
       error_message.append("email alredy exist")
     return error, error_message
+
+  def get(self, request):
+    users_dic = []
+    users = User.objects.all()
+    for item in users:
+      response = model_to_dict(item)
+    users_dic.append(response)
+    return JsonResponse({'users': users_dic }, status = 200 )
+
+@method_decorator(csrf_exempt, name='dispatch')
+class MessageViews(View):
+  def post(self, request):
+    try:
+      code = request.headers['Authorization']
+      print('CODECODECODECODECODECODECODECODECODE',code)
+      load_data = jwt.decode(code[7:], 'zma' , algorithms=["HS256"])
+      print('load_dataload_dataload_dataload_dataload_dataload_data', load_data)
+      user_id = User.objects.get(email = load_data['email']).id
+      if  User.objects.filter(id = user_id).exists():
+        return JsonResponse({'error': 'this user not exisit'}, status = 422)
+      try:
+        message_load_data = json.loads(request.body)
+        data = {
+        'title': message_load_data['title'],
+        'body' : message_load_data['body']
+        }
+        message = Message.objects.create(user_id = user_id, **data)
+        response = model_to_dict(message)
+        return JsonResponse(response, status = 201)
+      except json.JSONDecodeError :
+        return JsonResponse({'error': 'invalid json'}, status = 422)
+    except jwt.InvalidTokenError:
+      return JsonResponse({'error': 'invalid jwt'}, status = 422)
