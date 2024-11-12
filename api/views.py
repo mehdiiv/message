@@ -12,8 +12,7 @@ from .models import User, Message
 
 def find_user(code):
   try:
-    load_data = jwt.decode(code[7:], 'zma', algorithms=['HS256'])
-    return False, load_data['email']
+    return False, jwt.decode(code[7:], 'zma', algorithms=['HS256'])['email']
   except jwt.InvalidTokenError :
     error_message = 'token is in valid'
     return True, error_message
@@ -32,12 +31,11 @@ def valid(email):
     if email == '' or email == None:
       return True, 'email cannot be empty'
     validate_email(email)
-    if User.objects.filter(email = email ).exists():
-      return True, 'email alredy exist'
     return False,None
   except ValidationError:
     print(email)
     return True, 'email is incorrect'
+
 def authorization(bearer_token):
   try:
       load_data = jwt.decode(bearer_token[7:], 'zma' , algorithms=["HS256"])
@@ -45,33 +43,22 @@ def authorization(bearer_token):
   except jwt.InvalidTokenError:
     return True, None
 
-def valid_mail_messages(email):
-  try:
-    if email == '' or email == None:
-      return True, 'email cannot be empty'
-    validate_email(email)
-    if not User.objects.filter(email = email ).exists():
-      return True, 'user not exist'
-    return False,None
-  except ValidationError:
-    print(email)
-    return True, 'email is incorrect'
-
 @method_decorator(csrf_exempt, name='dispatch')
 class UsersView(View):
-
   def post(self, request):
       error, load_data = fetch_data(request.body)
       if error:
-        return render_error('invalid data')
+        return render_error('invalid json')
       error, error_message = valid(load_data.get('email'))
       if error:
         return render_error(error_message)
+      if User.objects.filter(email = load_data.get('email')).exists():
+        return render_error('email alredy exist')
 
       user = User.objects.create(email = load_data['email'], json_web_token = jwt.encode({'email' :load_data['email']},'zma' , algorithm="HS256"))
       return JsonResponse(model_to_dict(user), status = 201)
 
-  def get(self, request):
+  def get(self, _):
     users_dic = []
     users = User.objects.all()
     for item in users:
@@ -84,12 +71,17 @@ class MessagesViews(View):
       error, load_data = authorization(request.headers['Authorization'])
       if error:
         return render_error('invalid jwt')
-      error, error_message = valid_mail_messages(load_data.get('email'))
+
+      error, error_message = valid(load_data.get('email'))
       if error:
         return render_error(error_message)
+      if not User.objects.filter(email = load_data.get('email')).exists():
+        return render_error('user not exist')
       user_id = User.objects.get(email = load_data['email']).id
       error , message_load_data = fetch_data(request.body)
       if error :
         return render_error('invalid json')
+      if message_load_data['title'] == '' or message_load_data['title'] == None:
+        return render_error('title cannot be empty')
       message = Message.objects.create(user_id = user_id, title = message_load_data['title'], body = message_load_data['body'])
       return JsonResponse(model_to_dict(message), status = 201)
