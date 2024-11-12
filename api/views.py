@@ -18,65 +18,78 @@ def find_user(code):
     error_message = 'token is in valid'
     return True, error_message
 
+def render_error(message, status = 422):
+  return JsonResponse({'error_message': message}, status = status )
+
+def fetch_data(json_data):
+  try:
+      return False, json.loads(json_data)
+  except json.JSONDecodeError :
+      return True, None
+
+def valid(email):
+  try:
+    if email == '' or email == None:
+      return True, 'email cannot be empty'
+    validate_email(email)
+    if User.objects.filter(email = email ).exists():
+      return True, 'email alredy exist'
+    return False,None
+  except ValidationError:
+    print(email)
+    return True, 'email is incorrect'
+def authorization(bearer_token):
+  try:
+      load_data = jwt.decode(bearer_token[7:], 'zma' , algorithms=["HS256"])
+      return False, load_data
+  except jwt.InvalidTokenError:
+    return True, None
+
+def valid_mail_messages(email):
+  try:
+    if email == '' or email == None:
+      return True, 'email cannot be empty'
+    validate_email(email)
+    if not User.objects.filter(email = email ).exists():
+      return True, 'user not exist'
+    return False,None
+  except ValidationError:
+    print(email)
+    return True, 'email is incorrect'
+
 @method_decorator(csrf_exempt, name='dispatch')
-class UserView(View):
+class UsersView(View):
 
   def post(self, request):
-    try:
-      load_data = json.loads(request.body)
-      data = {
-      'email': load_data['email'],
-      'json_web_token' : jwt.encode({'email' :load_data['email']},'zma' , algorithm="HS256")
-      }
-      error, error_message = self.valid(data)
+      error, load_data = fetch_data(request.body)
       if error:
-        return JsonResponse({'error': error_message}, status = 422)
-      user = User.objects.create(**data)
-      response = model_to_dict(user)
-      return JsonResponse(response, status = 201)
-    except json.JSONDecodeError :
-      return JsonResponse({'error': 'token is in valid'}, status = 422)
+        return render_error('invalid data')
+      error, error_message = valid(load_data.get('email'))
+      if error:
+        return render_error(error_message)
 
-  def valid(self , user):
-    error = False
-    error_message = []
-    if user['email'] == '' :
-      error = True
-      error_message.append('email cannot be empty')
-    if User.objects.filter(email = user['email']).exists():
-      error = True
-      error_message.append("email alredy exist")
-    return error, error_message
+      user = User.objects.create(email = load_data['email'], json_web_token = jwt.encode({'email' :load_data['email']},'zma' , algorithm="HS256"))
+      return JsonResponse(model_to_dict(user), status = 201)
 
   def get(self, request):
     users_dic = []
     users = User.objects.all()
     for item in users:
-      response = model_to_dict(item)
-    users_dic.append(response)
+      users_dic.append(model_to_dict(item))
     return JsonResponse({'users': users_dic }, status = 200 )
 
 @method_decorator(csrf_exempt, name='dispatch')
-class MessageViews(View):
+class MessagesViews(View):
   def post(self, request):
-    try:
-      code = request.headers['Authorization']
-      print('CODECODECODECODECODECODECODECODECODE',code)
-      load_data = jwt.decode(code[7:], 'zma' , algorithms=["HS256"])
-      print('load_dataload_dataload_dataload_dataload_dataload_data', load_data)
+      error, load_data = authorization(request.headers['Authorization'])
+      if error:
+        return render_error('invalid jwt')
+      error, error_message = valid_mail_messages(load_data.get('email'))
+      if error:
+        return render_error(error_message)
       user_id = User.objects.get(email = load_data['email']).id
-      if  User.objects.filter(id = user_id).exists():
-        return JsonResponse({'error': 'this user not exisit'}, status = 422)
-      try:
-        message_load_data = json.loads(request.body)
-        data = {
-        'title': message_load_data['title'],
-        'body' : message_load_data['body']
-        }
-        message = Message.objects.create(user_id = user_id, **data)
-        response = model_to_dict(message)
-        return JsonResponse(response, status = 201)
-      except json.JSONDecodeError :
-        return JsonResponse({'error': 'invalid json'}, status = 422)
-    except jwt.InvalidTokenError:
-      return JsonResponse({'error': 'invalid jwt'}, status = 422)
+      error , message_load_data = fetch_data(request.body)
+      if error :
+        return render_error('invalid json')
+      message = Message.objects.create(user_id = user_id, title = message_load_data['title'], body = message_load_data['body'])
+      return JsonResponse(model_to_dict(message), status = 201)
