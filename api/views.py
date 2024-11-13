@@ -26,7 +26,7 @@ def fetch_data(json_data):
   except json.JSONDecodeError :
       return True, None
 
-def valid(email):
+def valid_email(email):
   try:
     if email == '' or email == None:
       return True, 'email cannot be empty'
@@ -49,7 +49,7 @@ class UsersView(View):
       error, load_data = fetch_data(request.body)
       if error:
         return render_error('invalid json')
-      error, error_message = valid(load_data.get('email'))
+      error, error_message = valid_email(load_data.get('email'))
       if error:
         return render_error(error_message)
       if User.objects.filter(email = load_data.get('email')).exists():
@@ -72,12 +72,13 @@ class MessagesViews(View):
       if error:
         return render_error('invalid jwt')
 
-      error, error_message = valid(load_data.get('email'))
+      error, error_message = valid_email(load_data.get('email'))
       if error:
         return render_error(error_message)
-      if not User.objects.filter(email = load_data.get('email')).exists():
+      object = User.objects.filter(email = load_data.get('email'))
+      if not object.exists():
         return render_error('user not exist')
-      user_id = User.objects.get(email = load_data['email']).id
+      user_id = object[0].id
       error , message_load_data = fetch_data(request.body)
       if error :
         return render_error('invalid json')
