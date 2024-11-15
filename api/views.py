@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 import jwt
 import json
 from .models import User, Message
+from django.db.models import Q
 
 def render_error(message, status = 422):
   return JsonResponse({'error_message': message}, status = status )
@@ -40,9 +41,6 @@ def authorization(bearer_token):
       objects = User.objects.filter(email = load_data.get('email'))
       if not objects.exists():
         return True, None
-      objects = User.objects.filter(email = load_data.get('email'))
-      if not objects.exists():
-        return True, None
       return False, objects[0]
   except jwt.InvalidTokenError:
     return True, None
@@ -62,9 +60,13 @@ class UsersView(View):
       user = User.objects.create(email = load_data['email'], json_web_token = jwt.encode({'email' :load_data['email']},'zma' , algorithm="HS256"))
       return JsonResponse(model_to_dict(user), status = 201)
 
-  def get(self, _):
+  def get(self, request):
     users_list = []
     users = User.objects.all()
+    if request.GET.get('limit') != None and request.GET.get('limit').isdigit():
+      limit = int(request.GET.get('limit'))
+      users = users[:limit]
+
     for item in users:
       users_list.append(model_to_dict(item))
     return JsonResponse({'users': users_list }, status = 200)
@@ -90,8 +92,16 @@ class MessagesViews(View):
     error, user = authorization(request.headers.get('Authorization'))
     if error :
       return render_error('you are not authorised')
-    messages_list = []
     messges = Message.objects.filter(user = user)
+    if request.GET.get('search_by') != None :
+       search_by = request.GET.get('search_by')
+       messges = Message.objects.filter(Q(body__icontains= search_by ),user = user)
+    if request.GET.get('limit') != None and request.GET.get('limit').isdigit():
+      print('244444444',type(request.GET.get('limit')))
+      limit = int(request.GET.get('limit'))
+      messges = messges[:limit]
+
+    messages_list = []
     for item in messges :
       messages_list.append(model_to_dict(item))
     return JsonResponse({'messages' : messages_list }, status = 200)
