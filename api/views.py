@@ -63,13 +63,16 @@ class UsersView(View):
   def get(self, request):
     users_list = []
     users = User.objects.all()
-    if request.GET.get('limit') != None and request.GET.get('limit').isdigit():
+
+    if request.GET.get('limit') and request.GET.get('offset') != None and request.GET.get('limit').isdigit() and request.GET.get('offset').isdigit():
+      offset = int(request.GET.get('offset'))
       limit = int(request.GET.get('limit'))
-      users = users[:limit]
+      users = users[offset:offset+limit]
 
     for item in users:
       users_list.append(model_to_dict(item))
     return JsonResponse({'users': users_list }, status = 200)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class MessagesViews(View):
@@ -96,10 +99,10 @@ class MessagesViews(View):
     if request.GET.get('search_by') != None :
        search_by = request.GET.get('search_by')
        messges = Message.objects.filter(Q(body__icontains= search_by ),user = user)
-    if request.GET.get('limit') != None and request.GET.get('limit').isdigit():
-      print('244444444',type(request.GET.get('limit')))
+    if request.GET.get('limit') and request.GET.get('offset') != None and request.GET.get('limit').isdigit() and request.GET.get('offset').isdigit():
+      offset = int(request.GET.get('offset'))
       limit = int(request.GET.get('limit'))
-      messges = messges[:limit]
+      messges = messges[offset:offset+limit]
 
     messages_list = []
     for item in messges :

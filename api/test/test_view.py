@@ -67,7 +67,7 @@ class ApiTest(TestCase):
   def api_users_list_limit(self):
     User.objects.create(email = 'test3@test3.com', json_web_token = create_jwt( 'test3@test3.com' ))
     User.objects.create(email = 'test2@test2.com', json_web_token = create_jwt( 'test2@test2.com' ))
-    response = self.client.get(reverse('users'), {'limit': 2 })
+    response = self.client.get(reverse('users'), {'limit': 2 , 'offset': '0' })
     self.assertEqual(response.status_code, 200)
     self.assertEqual(len(response.json().get('users')), 2)
     self.assertEqual(response.json().get('users')[1].get('email'), 'test2@test2.com')
@@ -79,7 +79,7 @@ class ApiTest(TestCase):
   def test_api_users_list_limit_invalid_invalid_limit(self):
     User.objects.create(email = 'test3@test3.com', json_web_token = create_jwt( 'test3@test3.com' ))
     User.objects.create(email = 'test2@test2.com', json_web_token = create_jwt( 'test2@test2.com' ))
-    response = self.client.get(reverse('users'), {'limit': 'sfsafa'})
+    response = self.client.get(reverse('users'), {'limit': 'sfsafa',  'offset': 'sdsd' })
     self.assertEqual(response.status_code, 200)
     self.assertEqual(len(response.json().get('users')), 3)
     self.assertEqual(response.json().get('users')[2].get('email'), 'test2@test2.com')
@@ -187,7 +187,7 @@ class ApiTest(TestCase):
   def test_api_list_messages_query_params(self):
       Message.objects.create(user_id = self.user.id, title = 'testtiltle2', body = 'testbody2' )
       Message.objects.create(user_id = self.user.id, title = 'testtiltle3', body = 'testbody3' )
-      response = self.client.get(reverse('messages'), {'limit': '1'}, headers = {'Authorization': self.bearer_token })
+      response = self.client.get(reverse('messages'), {'limit': '1', 'offset': '0' }, headers = {'Authorization': self.bearer_token })
       self.assertEqual(response.status_code, 200)
       message_dic=[]
       for item in response.json().get('messages'):
@@ -197,7 +197,7 @@ class ApiTest(TestCase):
   def test_api_list_messages_wrong_query(self):
     Message.objects.create(user_id = self.user.id, title = 'testtiltle2', body = 'testbody2' )
     Message.objects.create(user_id = self.user.id, title = 'testtiltle3', body = 'testbody3' )
-    response = self.client.get(reverse('messages'), {'limit': 'sdsd'} ,headers = {'Authorization': self.bearer_token })
+    response = self.client.get(reverse('messages'), {'limit': 'sdsd', 'offset': 'dsds' } ,headers = {'Authorization': self.bearer_token })
     self.assertEqual(response.status_code, 200)
     self.assertEqual(len(response.json().get('messages')), 3)
     self.assertEqual(response.json().get('messages')[2].get('body'), 'testbody3')
